@@ -2,10 +2,15 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.core.config import config
 from app.core.database import Base, engine
 from app.core.logging import logger
+from app.core.limiter import limiter
+from app.core.idempotency import IdempotencyHitException
 from app.shared.middleware import register_middleware
 from app.apps.users.routes import router as users_router
 from app.apps.payments.routes import router as payments_router
@@ -18,9 +23,12 @@ from app.apps.alerts.routes import router as alerts_router
 from app.apps.advice.routes import router as advice_router
 from app.apps.dashboard.routes import router as dashboard_router
 from app.apps.budget.routes import router as budget_router
+from app.apps.helb.routes import router as helb_router
 
 # Initialize FastAPI application with metadata and version information.
 app = FastAPI(title=config.project_name, version=config.project_version)
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
 register_middleware(app)
 
 # Register feature routers.
@@ -35,6 +43,7 @@ app.include_router(alerts_router)
 app.include_router(advice_router)
 app.include_router(dashboard_router)
 app.include_router(budget_router)
+app.include_router(helb_router)
 
 # Ensure DB tables are created when the application starts.
 @app.on_event("startup")
@@ -47,6 +56,16 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -
     return JSONResponse(
         status_code=500,
         content={"detail": "A database error occurred. Please try again later."},
+    )
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+@app.exception_handler(IdempotencyHitException)
+async def idempotency_hit_handler(request: Request, exc: IdempotencyHitException) -> JSONResponse:
+    return JSONResponse(
+        status_code=200,
+        content=exc.cached_data,
+        headers={"X-Idempotency-Replayed": "true"}
     )
 
 

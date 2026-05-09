@@ -3,8 +3,10 @@ Application configuration using pydantic-settings.
 Loads sensitive data from .env file and provides type-safe configuration.
 """
 
+# pyrefly: ignore [missing-import]
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+# pyrefly: ignore [missing-import]
+from pydantic import Field  
 
 
 class Config(BaseSettings):
@@ -19,6 +21,9 @@ class Config(BaseSettings):
 
     # Security configuration
     secret_key: str = Field("changeme", validation_alias="SECRET_KEY")
+
+    # Redis configuration
+    redis_url: str = Field("redis://localhost:6379/0", validation_alias="REDIS_URL")
 
     # Africa's Talking SMS configuration
     africastalking_username: str = Field("your_username", validation_alias="AFRICASTALKING_USERNAME")

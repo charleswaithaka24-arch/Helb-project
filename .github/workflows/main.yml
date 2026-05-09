@@ -1,0 +1,65 @@
+name: Build, Test and Deploy
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  test_and_deploy:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: helb_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+        cache: "pip"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r backend/requirements.txt
+
+    - name: Run tests with pytest
+      # Adding environment variables that might be required by tests
+      # You can configure these in your GitHub repository secrets if needed
+      env:
+        DATABASE_URL: postgresql://user:password@localhost:5432/helb_db
+        SECRET_KEY: test_secret_key
+      run: |
+        cd backend
+        pytest
+
+    - name: Trigger Deployment Hook
+      # Only trigger deployment if tests passed (default behavior) AND it's a push to the main/master branch
+      if: success() && github.event_name == 'push'
+      env:
+        DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
+      run: |
+        if [ -z "$DEPLOY_HOOK_URL" ]; then
+          echo "Error: DEPLOY_HOOK_URL secret is not set. Skipping deployment."
+          exit 0
+        fi
+        
+        echo "Triggering deployment hook..."
+        curl -X POST "$DEPLOY_HOOK_URL"
