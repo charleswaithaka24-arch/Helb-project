@@ -3,8 +3,13 @@ from logging.config import fileConfig
 from alembic import context  # pyright: ignore
 from sqlalchemy import engine_from_config, pool  # pyright: ignore
 
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 from app.core.config import config
 from app.core.database import Base
+import app.main  # Import main to register all models with Base.metadata
 
 alembic_config = context.config
 
