@@ -1,4 +1,6 @@
+from typing import List
 from pydantic import BaseModel, EmailStr
+from app.apps.bookings.schemas import BookingResponse
 
 
 class UserBase(BaseModel):
@@ -20,3 +22,7 @@ class UserResponse(UserBase):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+class StudentWithLoansResponse(UserResponse):
+    loans: List[BookingResponse] = []

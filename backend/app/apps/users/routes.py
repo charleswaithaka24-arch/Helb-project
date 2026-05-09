@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.apps.users.providers import get_user_service
-from app.apps.users.schemas import LoginRequest, UserCreate, UserResponse
+from app.apps.users.schemas import LoginRequest, UserCreate, UserResponse, StudentWithLoansResponse
 from app.apps.users.service import UserService
 from app.core.database import get_db
-from app.core.security import create_access_token, get_current_user, verify_password
+from app.core.security import create_access_token, get_current_user, verify_password, get_current_admin
 from app.apps.users.models import User
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -33,3 +33,13 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.get("/admin/students", response_model=list[StudentWithLoansResponse])
+def get_admin_students(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """Fetch all students with their loan history optimally using joinedload."""
+    students = db.query(User).options(joinedload(User.loans)).all()
+    return students
